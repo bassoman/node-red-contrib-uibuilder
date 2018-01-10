@@ -224,7 +224,9 @@ if (typeof require !== 'undefined'  &&  typeof io === 'undefined') {
         //#region ========== Socket.IO processing ========== //
 
         // Create the socket - make sure client uses Socket.IO version from the uibuilder module (using path)
-        self.socket = io(self.ioNamespace, { path: self.ioPath, transports: self.ioTransport })
+        //self.socket = io(self.ioNamespace, { path: self.ioPath, transports: self.ioTransport })
+        // @since 2018-01-09 security
+        self.socket = io(self.ioNamespace, { path: self.ioPath, transports: self.ioTransport, query: 'auth_token=' + self.auth_token })
 
         /** Check whether Socket.IO is connected to the server, reconnect if not (recursive)
          *
@@ -418,6 +420,12 @@ if (typeof require !== 'undefined'  &&  typeof io === 'undefined') {
 
         self.events = {}  // placeholder for event listener callbacks by property name
 
+        // Add event listener for JWT
+        self.events.auth_token = function() {
+            self.socket.query = 'auth_token=' + self.auth_token
+            self.socket.io.opts.query = 'auth_token=' + self.auth_token
+        }
+
         /** Trigger event listener for a given property
          * Called when uibuilder.set is used
          *
@@ -451,6 +459,7 @@ if (typeof require !== 'undefined'  &&  typeof io === 'undefined') {
             var newScript = document.createElement('script')
             newScript.type = 'text/javascript'
             newScript.defer = true
+            // @ts-ignore
             newScript.textContent = script
             document.getElementsByTagName('body')[0].appendChild(newScript)
         }
@@ -464,6 +473,7 @@ if (typeof require !== 'undefined'  &&  typeof io === 'undefined') {
 
             self.uiDebug('log', 'uibuilderfe: newStyle - style: ' + style)
             var newStyle = document.createElement('style')
+            // @ts-ignore
             newStyle.textContent = style
             document.getElementsByTagName('head')[0].appendChild(newStyle)
         }
@@ -594,7 +604,7 @@ if (typeof require !== 'undefined'  &&  typeof io === 'undefined') {
          * load: All resources are loaded
          */
          //document.addEventListener('DOMContentLoaded', function(){
-         //   self.send({'uibuilderCtrl':'DOMContentLoaded'},self.ioChannels.control)
+            //   self.send({'uibuilderCtrl':'DOMContentLoaded'},self.ioChannels.control)
          //})
         window.addEventListener('load', function(){
             if ( self.autoSendReady === true ) {

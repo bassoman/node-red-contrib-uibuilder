@@ -27,6 +27,7 @@ const serveStatic      = require('serve-static'),
       path             = require('path'),
       fs               = require('fs-extra'),
       events           = require('events'),
+      jwt              = require('jsonwebtoken'),
       winston          = require('winston')
 
 const { getInstalledPathSync } = require('get-installed-path')
@@ -136,7 +137,7 @@ module.exports = function(RED) {
 
     // Check that all incoming SocketIO data has the IO cookie
     // TODO: Needs a bit more work to add some real security - should it be on ioNs? - No! Pointless as it is only done on connection
-    io.use(function(socket, next){
+    //io.use(function(socket, next){
         /* Some SIO related info that might be useful in security checks
             //console.log('--socket.request.connection.remoteAddress--')
             //console.dir(socket.request.connection.remoteAddress)
@@ -144,13 +145,13 @@ module.exports = function(RED) {
             //console.dir(socket.handshake.address)
             //console.dir(io.sockets.connected)
         */
-        if (socket.request.headers.cookie) {
-            //log.info('UIbuilder:io.use - Authentication OK - ID: ' + socket.id)
-            //log.debug(socket.request.headers.cookie)  // socket.handshake.headers.cookie
-            return next()
-        }
-        next(new Error('UIbuilder:io.use - Authentication error - ID: ' + socket.id ))
-    })
+        // if (socket.request.headers.cookie) {
+        //     //log.info('UIbuilder:io.use - Authentication OK - ID: ' + socket.id)
+        //     //log.debug(socket.request.headers.cookie)  // socket.handshake.headers.cookie
+        //     return next()
+        // }
+        // next(new Error('UIbuilder:io.use - Authentication error - ID: ' + socket.id ))
+    //})
     /** @since 2017-12-20 add optional socket middleware from settings.js
      * Use for custom authorisation such as JWT.
      * WARNING: This will be called ONLY when the initial connection happens,
@@ -158,12 +159,12 @@ module.exports = function(RED) {
      *          This means that websocket connections can NEVER be as secure.
      *          since token expiry and validation is only run once
      **/
-    if ( uib_globalSettings.hasOwnProperty('socketmiddleware') ) {
+    //if ( uib_globalSettings.hasOwnProperty('socketmiddleware') ) {
         /** Is a uibuilder specific function available? */
-        if ( typeof uib_globalSettings.socketmiddleware === 'function' ) {
-            io.use(uib_globalSettings.socketmiddleware)
-        }
-    }
+        // if ( typeof uib_globalSettings.socketmiddleware === 'function' ) {
+        //     io.use(uib_globalSettings.socketmiddleware)
+        // }
+    //}
 
 
     function nodeGo(config) {
@@ -187,9 +188,57 @@ module.exports = function(RED) {
         node.allowStyles   = config.allowStyles
         node.debugFE       = config.debugFE
         node.copyIndex     = config.copyIndex
+        node.jwtSecurity   = config.jwtSecurity
+        node.jwtSecret     = config.jwtSecret
         //#endregion ----
 
         log.verbose( 'node settings', {'name': node.name, 'topic': node.topic, 'url': node.url, 'fwdIn': node.fwdInMessages, 'allowScripts': node.allowScripts, 'allowStyles': node.allowStyles, 'debugFE': node.debugFE })
+
+        // Check for insecure connection
+        if (node.jwtSecurity && !node.jwtSecret) {
+            log.warn('JWT Security has been turned on, but there is no jwtSecret! WARNING: Token security on socket is DISABLED.')
+            node.warn(`uibuilder:$(node.url): JWT Security has been turned on, but there is no jwtSecret! WARNING: Token security on socket is DISABLED.`)
+            node.jwtSecurity = false
+        }
+
+        // If we are using JWT Security - validate the token
+        // if (node.jwtSecurity) {
+        //     // Define Socket.IO security using JWT if required
+        //     io.use(function(socket, next){
+        //         /* Some SIO related info that might be useful in security checks
+        //             //console.log('--socket.request.connection.remoteAddress--')
+        //             //console.dir(socket.request.connection.remoteAddress)
+        //             //console.log('--socket.handshake.address--')
+        //             //console.dir(socket.handshake.address)
+        //             //console.dir(io.sockets.connected)
+        //         */
+
+        //         // Validate if JWT is passed
+        //         jwt.verify(socket.handshake.query.auth_token, node.jwtSecret, function(err, decoded) {
+        //             log.verbose('nodeGo:socketSecurity - JWT Security middleware called. Socket ID: ' + socket.id, socket.handshake.query.auth_token, decoded, err )
+        //             if (err || new Date().getTime() > decoded.exp) {
+        //                 Error.prototype.socketId
+        //                 const myErr = new Error()
+        //                 myErr.name = 'Token Authentication error'
+        //                 myErr.socketId = socket.id
+        //                 return next(err)
+        //             } else {
+        //                 return next()
+        //             }
+        //         })
+        //     })
+        // } else {
+            io.use(function(socket, next){
+                // Check that all incoming SocketIO data has the IO cookie
+                // WARNING: This really isn't secure!
+                if (socket.request.headers.cookie) {
+                    //log.info('UIbuilder:io.use - Authentication OK - ID: ' + socket.id)
+                    //log.debug(socket.request.headers.cookie)  // socket.handshake.headers.cookie
+                    return next()
+                }
+                next(new Error('UIbuilder:io.use - Authentication error - ID: ' + socket.id ))
+            })
+        // } // --- End of socketSecurity validation middleware setup --- //
 
         /** User supplied vendor packages
          * & only if using dev folders (delete ~/.node-red/uibuilder/<url>/dist/index.html)
@@ -445,53 +494,10 @@ module.exports = function(RED) {
 
             // if the client sends a specific msg channel...
             socket.on(node.ioChannels.client, function(msg) {
-                log.debug(
-                    `UIbuilder: ${node.url}, Data received from client, ID: ${socket.id}, Msg: ${msg.payload}`
-                )
-
-                // Make sure the incoming msg is a correctly formed Node-RED msg
-                switch ( typeof msg ) {
-                    case 'string':
-                    case 'number':
-                    case 'boolean':
-                        msg = { 'topic': node.topic, 'payload': msg}
-                }
-
-                // If the sender hasn't added msg._clientId, add the Socket.id now
-                if ( ! msg.hasOwnProperty('_socketId') ) {
-                    msg._socketId = socket.id
-                }
-
-                // Send out the message for downstream flows
-                // TODO: This should probably have safety validations!
-                node.send(msg)
+                processSocketMsgReceived(node.ioChannels.client, msg, socket, node, ioNs)
             });
             socket.on(node.ioChannels.control, function(msg) {
-                log.debug(
-                    `UIbuilder: ${node.url}, Control Msg from client, ID: ${socket.id}, Msg: ${msg.payload}`
-                )
-
-                // Make sure the incoming msg is a correctly formed Node-RED msg
-                switch ( typeof msg ) {
-                    case 'string':
-                    case 'number':
-                    case 'boolean':
-                        msg = { 'uibuilderCtrl': msg }
-                }
-
-                // If the sender hasn't added msg._clientId, add the Socket.id now
-                if ( ! msg.hasOwnProperty('_socketId') ) {
-                    msg._socketId = socket.id
-                }
-
-                // @since 2017-11-05 v0.4.9 If the sender hasn't added msg.from, add it now
-                if ( ! msg.hasOwnProperty('from') ) {
-                    msg.from = 'client'
-                }
-
-                // Send out the message on port #2 for downstream flows
-                uiblib.sendControl(msg, ioNs, node)  // fn adds topic if needed
-                //node.send([null,msg])
+                processSocketMsgReceived(node.ioChannels.control, msg, socket, node, ioNs)
             });
 
             socket.on('disconnect', function(reason) {
@@ -557,6 +563,65 @@ module.exports = function(RED) {
                 })
             */
 
+            /** When either a standard or a control msg is received from the client, this is called.
+             * @since 2018-01-09 security
+            */
+            function processSocketMsgReceived(channel, msg, socket, node, ioNs) {
+                log.debug(
+                    `UIbuilder: ${node.url}, Data received from client on channel ${channel}, ID: ${socket.id}, Msg: ${msg.payload}, Token: ${socket.handshake.query.auth_token}`
+                )
+
+                // Check security
+                if ( node.jwtSecurity ) {
+                    // Validate if JWT is passed - first try to decode token
+                    jwt.verify(socket.handshake.query.auth_token, node.jwtSecret, function(err, decoded) {
+                        // If token not decoded (err) or has expired ...
+                        if (err || new Date().getTime() > decoded.exp) {
+                            // ... send a control msg back to client
+                            // then disconnect the client - maybe?! Or maybe better to just not allow normal send/recv
+                            ////TODO: ioNs.connected[socket.id].disconnect()
+                            // finally output a Node-RED msg - or should this be just a node.warn?
+                            uiblib.sendControl({ 'topic': node.topic, 'type': 'auth_token_error', 'err': err }, ioNs, node)
+                            // and exit this function
+                            return
+                        } else {
+                            // Token is valid so ...
+                            // ... refresh token expiry timestamp
+                            // clients should stay valid if they continue to interact.
+                            // TODO: consider a 2nd timestamp for a hard logout, also consider using ping msg for updating token
+                        }
+                    })
+                }
+                // Token is valid or not checking tokens so process incoming msg normally
+
+                // Make sure the incoming msg is a correctly formed Node-RED msg
+                switch ( typeof msg ) {
+                    case 'string':
+                    case 'number':
+                    case 'boolean':
+                        msg = { 'topic': node.topic, 'payload': msg}
+                }
+
+                // If the sender hasn't added msg._clientId, add the Socket.id now
+                if ( ! msg.hasOwnProperty('_socketId') ) {
+                    msg._socketId = socket.id
+                }
+
+                // Send out the message for downstream flows
+                // TODO: This should probably have safety validations!
+                if ( channel === node.ioChannels.client ) {
+                    node.send(msg)
+                } else if ( channel === node.ioChannels.control ) {
+                    // Send out the message on port #2 for downstream flows
+                    uiblib.sendControl(msg, ioNs, node)  // fn adds topic if needed
+                    //node.send([null,msg])
+                } else {
+                    // Unknown channel type - just warn
+                    node.warn(`UIbuilder: ${node.url}, Data received from client on unknown channel ${channel}, ID: ${socket.id}`)
+                }
+
+            } // --- processSocketMsgReceived --- //
+
         }) // ---- End of ioNs.on connection ---- //
 
         // handler function for node input events (when a node instance receives a msg)
@@ -619,5 +684,18 @@ module.exports = function(RED) {
     })
 
 } // ==== End of module.exports ==== //
+
+
+// security
+function socketSecurity(socket,next) {
+    // Validate if JWT is passed
+    jwt.verify(socket.handshake.query.auth_token, config.jwtSecret, function(err, decoded) {
+        if (err) {
+            return next(new Error('Authentication error - ID: ' + socket.id ))
+        } else {
+            return next()
+        }
+    })
+}
 
 // EOF

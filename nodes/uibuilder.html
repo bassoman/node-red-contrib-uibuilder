@@ -39,6 +39,9 @@
             allowStyles: { value: false },
             debugFE: { value: false },
             copyIndex:  { value: true },
+            // @since 2018-01-09 - security
+            jwtSecret: { value: '' },
+            jwtSecurity: { value: false },
         },
         inputs: 1,
         inputLabels: 'Msg to send to front-end',
@@ -67,6 +70,8 @@
                 // Update the list of available paths
                 buildUrlList(pkgs, $(this).val())
             });
+            // @since 2018-01-09 - security
+            $('#node-input-jwtSecurity').prop('checked', this.jwtSecurity)
         },
         //oneditsave: function() { },
         //oneditresize: function(size) { },
@@ -92,6 +97,18 @@
     <div class="form-row" title="Make sure this gives a unique URL">
         <label for="node-input-url"><i class="fa fa-globe"></i> URL</label>
         <input type="text" id="node-input-url">
+    </div>
+
+    <!-- JWT Token Secret @since 2018-01-09 - security -->
+    <div class="form-row">
+        <label for="node-input-jwtSecret"><i class="fa fa-lock"></i> JWT Secret</label>
+        <input type="text" id="node-input-jwtSecret">
+    </div>
+
+    <!-- Use JWT Token Auth method for socket @since 2018-01-09 - security -->
+    <div class="form-row">
+        <input type="checkbox" id="node-input-jwtSecurity" style="display: inline-block; width: auto; vertical-align: top;">
+        <label for="node-input-jwtSecurity" style="width: 70%;">Use JWT for Socket Authorization?</label>
     </div>
 
     <!-- Forward input msgs to output -->
