@@ -203,6 +203,7 @@ if (typeof require !== 'undefined'  &&  typeof io === 'undefined') {
         self.ioNamespace  = self.setIOnamespace()           // Get the namespace from the current URL
         self.ioPath       = '/uibuilder/socket.io'          // make sure client uses Socket.IO version from the uibuilder module (using path)
         self.ioTransport  = ['polling', 'websocket']
+        self.throttleCtrl = []
         //#endregion --- variables ---
 
         /** Function to set uibuilder properties to a new value - works on any property - see uiReturn.set also for external use
@@ -276,6 +277,12 @@ if (typeof require !== 'undefined'  &&  typeof io === 'undefined') {
             if ( self.allowStyle && receivedMsg.hasOwnProperty('style') ) {
                 self.newStyle(receivedMsg.style)
                 if ( self.removeStyle ) delete receivedMsg.style
+            }
+            // If the msg contains a throttle property, set up dictionary for delay routine, remove from msg if required
+            if ( receivedMsg.hasOwnProperty('throttle') ) {
+                // TODO: set up dictionary for send timer of a specific property name and value
+                self.set('throttleCtrl', receivedMsg.throttle)
+                console.dir(self.throttleCtrl)
             }
 
             // Save the msg for further processing
