@@ -160,6 +160,15 @@
         <dt class="optional">topic <span class="property-type">(string)</span></dt>
         <dd> Optionally, the MQTT topic to use. Takes preference over the topic defined in settings.</dd>
 
+        <dt class="optional">throttle <span class="property-type">(object)</span></dt>
+        <dd>
+            Optionally, the throttle property must be an array of objects comprised of name/value pairs.
+            Any payload containing a defined property-name/value, when passed to server via client side uibuilder.send function,
+            will delay the actual call by a random number of milliseconds within range minMillis to maxMillis. Passing an empty or new array
+            will serve to remove or reconfigure all previous throttle assignments.
+        </dd>
+        <pre>msg.throttle = {<br>[{propName: 'action',<br>propValue: 'queryDb',<br>minMillis: 50,<br>maxMillis: 100},...]</pre>
+
         <dt class="optional">script <span class="property-type">(string | string[])</span></dt>
         <dd>
           Optionally, a string or array of strings containing valid JavaScript.

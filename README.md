@@ -122,6 +122,9 @@ _[back to top](#contents)_
 - Sent msg's can have a `msg.script` and `msg.style` property that will dynamically
   add that code to the web page - if allowed by the settings (default is off)
 
+- Sent msg's can also include a `throttle` property that will change the rate at which msg's are sent to the server from the client
+  for payloads containing specific properties (default is off). Useful for dynamically controlling speed of traffic from all connected clients.
+
 - Including a `_socketId` attribute on messages sent from Node-RED will send to that ID only.
   An ID is associated with a specific browser tab and is reset when the page is reloaded so this isn't too easy to use as yet (see [To Do list](to-do)).
   The `_socketId` attribute is added to any msg sent from the client to Node-RED.
