@@ -416,7 +416,13 @@ if (typeof require !== 'undefined'  &&  typeof io === 'undefined') {
                 self.set('msgsCtrl', self.msgsCtrl + 1)
             }
 
-            self.socket.emit(channel, msgToSend)
+            var throttleDelay = 1000;
+            if (self.timerid) window.clearTimeout(self.timerid) // we only want one running at a time
+            self.timerid = window.setTimeout(function () {
+                self.socket.emit(channel, msgToSend)
+                self.timerid = null
+            }, throttleDelay)
+
         } // --- End of Send Msg Fn --- //
 
         //#endregion ======== End of Socket.IO processing ======== //
