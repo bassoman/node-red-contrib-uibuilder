@@ -313,6 +313,12 @@ if (typeof require !== 'undefined'  &&  typeof io === 'undefined') {
             // Allow incoming control msg to change debug state (usually on the connection msg)
             if ( receivedCtrlMsg.hasOwnProperty('debug') ) self.debug = receivedCtrlMsg.debug
 
+            // If the msg contains a throttle property, set up dictionary for delay routine, remove from msg if required
+            if ( receivedCtrlMsg.hasOwnProperty('throttle') ) {
+                self.set('throttleCtrl', receivedCtrlMsg.throttle)
+                // console.dir(self.throttleCtrl)
+            }
+
             self.set('ctrlMsg', receivedCtrlMsg)
             self.set('msgsCtrl', self.msgsCtrl + 1)
 
