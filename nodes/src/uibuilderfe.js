@@ -426,8 +426,9 @@ if (typeof require !== 'undefined'  &&  typeof io === 'undefined') {
             // if more than one property defined as a throttle, first match wins...
             for (var i = 0; i < arr.length; i++) {
                 if (msgToSend[arr[i].propName] && msgToSend[arr[i].propName] == arr[i].propValue) {
-                    // TODO: assign random delay between minMillis and maxMillis
-                    throttleDelay = arr[i].maxMillis; // for testing...
+                    var max = arr[i].maxMillis;
+                    var min = arr[i].minMillis;
+                    throttleDelay = Math.floor(Math.random() * (max - min + 1 ) ) + min;
                     break;
                 }
             }
