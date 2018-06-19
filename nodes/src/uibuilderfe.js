@@ -280,9 +280,8 @@ if (typeof require !== 'undefined'  &&  typeof io === 'undefined') {
             }
             // If the msg contains a throttle property, set up dictionary for delay routine, remove from msg if required
             if ( receivedMsg.hasOwnProperty('throttle') ) {
-                // TODO: set up dictionary for send timer of a specific property name and value
                 self.set('throttleCtrl', receivedMsg.throttle)
-                console.dir(self.throttleCtrl)
+                // console.dir(self.throttleCtrl)
             }
 
             // Save the msg for further processing
@@ -416,7 +415,17 @@ if (typeof require !== 'undefined'  &&  typeof io === 'undefined') {
                 self.set('msgsCtrl', self.msgsCtrl + 1)
             }
 
-            var throttleDelay = 1000;
+            var throttleDelay = 0; // default no delay...
+            var arr = self.throttleCtrl;
+            // if more than one property defined as a throttle, first match wins...
+            for (var i = 0; i < arr.length; i++) {
+                if (msgToSend[arr[i].propName] && msgToSend[arr[i].propName] == arr[i].propValue) {
+                    // TODO: assign random delay between minMillis and maxMillis
+                    throttleDelay = arr[i].maxMillis; // for testing...
+                    break;
+                }
+            }
+
             if (self.timerid) window.clearTimeout(self.timerid) // we only want one running at a time
             self.timerid = window.setTimeout(function () {
                 self.socket.emit(channel, msgToSend)
